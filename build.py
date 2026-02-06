@@ -4,6 +4,7 @@ import shutil
 
 DATA_FILE = 'links.json'
 TEMPLATE_FILE = 'template.html'
+ADMIN_FILE = 'admin.html' 
 OUTPUT_DIR = 'public'
 
 def main():
@@ -19,19 +20,20 @@ def main():
     with open(TEMPLATE_FILE, 'r', encoding='utf-8') as f:
         template = f.read()
 
-    # 3. Tạo trang chủ (Dashboard danh sách link - Optional)
+    # 3. Tạo trang chủ
     with open(os.path.join(OUTPUT_DIR, 'index.html'), 'w', encoding='utf-8') as f:
         f.write("<h1>Hệ thống Rút gọn Link</h1><p>Liên hệ Admin để tạo link.</p>")
+
+    if os.path.exists(ADMIN_FILE):
+        shutil.copy(ADMIN_FILE, os.path.join(OUTPUT_DIR, ADMIN_FILE))
+        print(f"Đã copy {ADMIN_FILE} sang {OUTPUT_DIR}/")
 
     # 4. Tạo từng folder link
     print(f"Đang xử lý {len(links)} liên kết...")
     for slug, url in links.items():
-        # Bỏ qua các ký tự đặc biệt nếu có trong slug để tránh lỗi folder
         safe_slug = "".join([c for c in slug if c.isalnum() or c in "-_"])
-        
         link_dir = os.path.join(OUTPUT_DIR, safe_slug)
         os.makedirs(link_dir, exist_ok=True)
-        
         html_content = template.replace('{{TARGET_URL}}', url)
         
         with open(os.path.join(link_dir, 'index.html'), 'w', encoding='utf-8') as f:
