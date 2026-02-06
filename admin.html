@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Rút gọn Link</title>
+    <style>
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:500px;margin:2rem auto;padding:0 1rem;background:#f6f8fa}
+        .card{background:#fff;padding:2rem;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.12);border:1px solid #d0d7de}
+        h2{margin-top:0;color:#24292f;text-align:center}
+        label{display:block;margin-bottom:8px;font-weight:600;color:#24292f}
+        input{width:100%;padding:8px 12px;margin-bottom:16px;border:1px solid #d0d7de;border-radius:6px;box-sizing:border-box}
+        button{width:100%;background:#2da44e;color:#fff;border:none;padding:10px;border-radius:6px;font-weight:600;cursor:pointer}
+        button:hover{background:#2c974b}
+        button:disabled{background:#94d3a2;cursor:not-allowed}
+        #status{margin-top:16px;padding:12px;border-radius:6px;font-size:14px;display:none}
+        .success{background:#dafbe1;color:#1a7f37;border:1px solid #aceebb}
+        .error{background:#ffebe9;color:#cf222e;border:1px solid #ff8182}
+        .hint{font-size:12px;color:#57606a;margin-top:-12px;margin-bottom:16px;display:block}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🔗 Tạo Link Rút Gọn</h2>
+        
+        <label>Link gốc (URL đích)</label>
+        <input type="url" id="longUrl" placeholder="https://..." required>
+
+        <label>Mã rút gọn (Slug)</label>
+        <input type="text" id="shortSlug" placeholder="vd: my-cv, fb" required>
+        <small class="hint">Link sẽ là: username.github.io/repo/slug</small>
+
+        <label>GitHub Token</label>
+        <input type="password" id="ghToken" placeholder="github_pat_...">
+        
+        <button id="btnCreate" onclick="createLink()">Tạo Link</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // --- CẤU HÌNH (SỬA LẠI THÔNG TIN CỦA BẠN) ---
+        const CONFIG = {
+            owner: 'STAC-UMT', // Thay bằng Username GitHub của bạn
+            repo: 'url-shortener',  // Thay bằng tên Repo của bạn
+            path: 'links.json'
+        };
+
+        const savedToken = localStorage.getItem('gh_token');
+        if (savedToken) document.getElementById('ghToken').value = savedToken;
+
+        async function createLink() {
+            const ui = {
+                btn: document.getElementById('btnCreate'),
+                status: document.getElementById('status'),
+                long: document.getElementById('longUrl').value.trim(),
+                slug: document.getElementById('shortSlug').value.trim(),
+                token: document.getElementById('ghToken').value.trim()
+            };
+
+            if (!ui.long || !ui.slug || !ui.token) return showMsg('Vui lòng điền đủ thông tin!', 'error');
+
+            ui.btn.disabled = true;
+            ui.btn.textContent = "Đang xử lý...";
+            localStorage.setItem('gh_token', ui.token);
+
+            try {
+                // 1. Get current data
+                const apiUrl = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
+                const getRes = await fetch(apiUrl, {
+                    headers: { 'Authorization': `Bearer ${ui.token}` }
+                });
+                
+                if (!getRes.ok) throw new Error('Lỗi kết nối hoặc sai Token!');
+                
+                const fileData = await getRes.json();
+                const content = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
+
+                // 2. Check duplicate
+                if (content[ui.slug]) throw new Error(`Mã "${ui.slug}" đã tồn tại!`);
+
+                // 3. Update data
+                content[ui.slug] = ui.long;
+                const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2))));
+
+                // 4. Commit
+                const putRes = await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${ui.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Add link: ${ui.slug}`,
+                        content: newContent,
+                        sha: fileData.sha
+                    })
+                });
+
+                if (!putRes.ok) throw new Error('Không thể lưu file lên GitHub.');
+
+                showMsg(`✅ Thành công! Link <b>/${ui.slug}</b> sẽ chạy sau 1 phút.`, 'success');
+                document.getElementById('shortSlug').value = '';
+                document.getElementById('longUrl').value = '';
+
+            } catch (err) {
+                showMsg(err.message, 'error');
+            } finally {
+                ui.btn.disabled = false;
+                ui.btn.textContent = "Tạo Link";
+            }
+        }
+
+        function showMsg(text, type) {
+            const el = document.getElementById('status');
+            el.innerHTML = text;
+            el.className = type;
+            el.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
