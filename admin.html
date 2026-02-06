@@ -10,12 +10,25 @@
         h2{margin-top:0;color:#24292f;text-align:center}
         label{display:block;margin-bottom:8px;font-weight:600;color:#24292f}
         input{width:100%;padding:8px 12px;margin-bottom:16px;border:1px solid #d0d7de;border-radius:6px;box-sizing:border-box}
-        button{width:100%;background:#2da44e;color:#fff;border:none;padding:10px;border-radius:6px;font-weight:600;cursor:pointer}
-        button:hover{background:#2c974b}
-        button:disabled{background:#94d3a2;cursor:not-allowed}
-        #status{margin-top:16px;padding:12px;border-radius:6px;font-size:14px;display:none}
+        
+        /* Button chính */
+        .btn-primary{width:100%;background:#2da44e;color:#fff;border:none;padding:10px;border-radius:6px;font-weight:600;cursor:pointer}
+        .btn-primary:hover{background:#2c974b}
+        .btn-primary:disabled{background:#94d3a2;cursor:not-allowed}
+
+        /* Status Box */
+        #status{margin-top:16px;padding:12px;border-radius:6px;font-size:14px;display:none;word-break: break-all;}
         .success{background:#dafbe1;color:#1a7f37;border:1px solid #aceebb}
         .error{background:#ffebe9;color:#cf222e;border:1px solid #ff8182}
+        
+        /* Button Copy nhỏ */
+        .btn-copy {
+            background: #fff; border: 1px solid #1a7f37; color: #1a7f37;
+            padding: 2px 8px; border-radius: 4px; font-size: 12px; 
+            cursor: pointer; margin-left: 8px; font-weight: 600;
+        }
+        .btn-copy:hover { background: #e6ffec; }
+
         .hint{font-size:12px;color:#57606a;margin-top:-12px;margin-bottom:16px;display:block}
     </style>
 </head>
@@ -28,25 +41,30 @@
 
         <label>Mã rút gọn (Slug)</label>
         <input type="text" id="shortSlug" placeholder="vd: my-cv, fb" required>
-        <small class="hint">Link sẽ là: username.github.io/repo/slug</small>
+        <small class="hint" id="slugHint">Link sẽ là: ...</small>
 
         <label>GitHub Token</label>
         <input type="password" id="ghToken" placeholder="github_pat_...">
         
-        <button id="btnCreate" onclick="createLink()">Tạo Link</button>
+        <button id="btnCreate" class="btn-primary" onclick="createLink()">Tạo Link</button>
         <div id="status"></div>
     </div>
 
     <script>
         // --- CẤU HÌNH (SỬA LẠI THÔNG TIN CỦA BẠN) ---
         const CONFIG = {
-            owner: 'STAC-UMT', // Thay bằng Username GitHub của bạn
-            repo: 'url-shortener',  // Thay bằng tên Repo của bạn
+            owner: 'STAC-UMT', // Username GitHub
+            repo: 'url-shortener',  // Tên Repo
             path: 'links.json'
         };
 
+        // --- KHỞI TẠO ---
         const savedToken = localStorage.getItem('gh_token');
         if (savedToken) document.getElementById('ghToken').value = savedToken;
+
+        // Tự động hiển thị Hint URL dựa trên Config
+        const baseUrl = `https://${CONFIG.owner}.github.io/${CONFIG.repo}`;
+        document.getElementById('slugHint').innerText = `Link sẽ là: ${baseUrl}/[slug]`;
 
         async function createLink() {
             const ui = {
@@ -98,7 +116,21 @@
 
                 if (!putRes.ok) throw new Error('Không thể lưu file lên GitHub.');
 
-                showMsg(`✅ Thành công! Link <b>/${ui.slug}</b> sẽ chạy sau 1 phút.`, 'success');
+                // --- XỬ LÝ HIỂN THỊ THÀNH CÔNG (MỚI) ---
+                const fullLink = `${baseUrl}/${ui.slug}`;
+                
+                const successMsg = `
+                    ✅ <b>Thành công!</b><br>
+                    <div style="margin-top:5px; display:flex; align-items:center; flex-wrap:wrap; gap:5px;">
+                        <a href="${fullLink}" target="_blank" style="color:#1a7f37; font-weight:bold; text-decoration:none;">${fullLink}</a>
+                        <button class="btn-copy" onclick="copyText('${fullLink}', this)">Copy</button>
+                    </div>
+                    <small style="color:#57606a; display:block; margin-top:5px;">(Link sẽ hoạt động sau 1-2 phút)</small>
+                `;
+
+                showMsg(successMsg, 'success');
+                
+                // Clear inputs
                 document.getElementById('shortSlug').value = '';
                 document.getElementById('longUrl').value = '';
 
@@ -110,11 +142,25 @@
             }
         }
 
-        function showMsg(text, type) {
+        function showMsg(htmlContent, type) {
             const el = document.getElementById('status');
-            el.innerHTML = text;
+            el.innerHTML = htmlContent;
             el.className = type;
             el.style.display = 'block';
+        }
+
+        // Hàm Copy vào Clipboard
+        function copyText(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.innerText;
+                btn.innerText = "Đã Copy!";
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('Không thể copy:', err);
+                alert('Lỗi copy, bạn hãy bôi đen và copy thủ công.');
+            });
         }
     </script>
 </body>
