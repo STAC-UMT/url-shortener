@@ -7,6 +7,7 @@ on:
       - 'links.json'
       - 'template.html'
       - 'build.py'
+      - 'admin.html'
       - '.github/workflows/deploy.yml'
 
 permissions:
