@@ -77,18 +77,47 @@
             
             <div class="row">
                 <div class="col">
-                    <label>Màu nền</label>
-                    <div class="color-picker">
+                    <label>Kiểu màu nền</label>
+                    <select id="bgFillType" onchange="toggleBgColors(); updateQRPreview()">
+                        <option value="solid">Màu đơn</option>
+                        <option value="linear">Gradient (Tuyến tính)</option>
+                        <option value="radial">Gradient (Tỏa tròn)</option>
+                    </select>
+                    
+                    <div id="bgSolidGroup" class="color-picker" style="margin-top: 10px;">
                         <input type="color" id="bgColor" value="#ffffff" onchange="checkContrast(); updateQRPreview()">
                         <label class="checkbox-group">
-                            <input type="checkbox" id="bgTransparent" onchange="checkContrast(); updateQRPreview()"> Trong suốt
+                            <input type="checkbox" id="bgTransparent" onchange="toggleBgColors(); checkContrast(); updateQRPreview()"> Nền trong suốt
                         </label>
                     </div>
+
+                    <div id="bgGradientGroup" class="color-picker" style="display: none; flex-wrap: wrap; margin-top: 10px;">
+                        <input type="color" id="bgColor1" value="#ffffff" onchange="checkContrast(); updateQRPreview()">
+                        <input type="color" id="bgColor2" value="#e6f7ff" onchange="checkContrast(); updateQRPreview()">
+                        <div style="width: 100%; font-size: 12px; margin-top: 5px;">
+                            Góc xoay: <span id="bgAngleVal">45</span>°
+                            <input type="range" id="bgAngle" min="0" max="360" value="45" style="width:100%" oninput="document.getElementById('bgAngleVal').innerText=this.value; updateQRPreview()">
+                        </div>
+                    </div>
                 </div>
+
                 <div class="col">
-                    <label>Màu chấm</label>
-                    <div class="color-picker">
-                        <input type="color" id="dotColor" value="#000000" onchange="checkContrast(); updateQRPreview()">
+                    <label>Kiểu màu họa tiết</label>
+                    <select id="dotFillType" onchange="toggleDotColors(); updateQRPreview()">
+                        <option value="solid">Màu đơn</option>
+                        <option value="linear" selected>Gradient (Tuyến tính)</option>
+                        <option value="radial">Gradient (Tỏa tròn)</option>
+                    </select>
+                    
+                    <div id="dotSolidGroup" class="color-picker" style="display: none; margin-top: 10px;">
+                        <input type="color" id="dotColor" value="#00a8e5" onchange="checkContrast(); updateQRPreview()">
+                    </div>
+
+                    <div id="dotGradientGroup" class="color-picker" style="display: flex; flex-wrap: wrap; margin-top: 10px;">
+                        <input type="color" id="dotColor1" value="#00a8e5" onchange="checkContrast(); updateQRPreview()"> <input type="color" id="dotColor2" value="#0056b3" onchange="checkContrast(); updateQRPreview()"> <div style="width: 100%; font-size: 12px; margin-top: 5px;">
+                            Góc xoay: <span id="dotAngleVal">135</span>°
+                            <input type="range" id="dotAngle" min="0" max="360" value="135" style="width:100%" oninput="document.getElementById('dotAngleVal').innerText=this.value; updateQRPreview()">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -202,38 +231,89 @@
         const savedToken = localStorage.getItem('gh_token');
         if (savedToken) document.getElementById('ghToken').value = savedToken;
 
+        // Ẩn hiện UI chọn màu
+        function toggleBgColors() {
+            const type = document.getElementById('bgFillType').value;
+            const isTrans = document.getElementById('bgTransparent').checked;
+            document.getElementById('bgSolidGroup').style.display = (type === 'solid' && !isTrans) ? 'flex' : (isTrans ? 'flex' : 'none');
+            document.getElementById('bgGradientGroup').style.display = (type !== 'solid' && !isTrans) ? 'flex' : 'none';
+        }
+
+        function toggleDotColors() {
+            const type = document.getElementById('dotFillType').value;
+            document.getElementById('dotSolidGroup').style.display = type === 'solid' ? 'flex' : 'none';
+            document.getElementById('dotGradientGroup').style.display = type !== 'solid' ? 'flex' : 'none';
+        }
+
         // --- LOGIC QR CODE ---
         function updateQRPreview() {
+            // 1. Lấy dữ liệu link và hình dáng
             const longUrl = document.getElementById('longUrl').value;
             const shortSlug = document.getElementById('shortSlug').value;
-            // Ưu tiên link rút gọn nếu có slug, không thì lấy link gốc
             const qrData = shortSlug ? `${baseUrl}/${shortSlug}` : (longUrl || "https://stac-umt.github.io");
 
-            const isTransparent = document.getElementById('bgTransparent').checked;
-            const bgColor = isTransparent ? "transparent" : document.getElementById('bgColor').value;
-            const dotColor = document.getElementById('dotColor').value;
-            
             const dotType = document.getElementById('dotType').value;
             const eyeFrame = document.getElementById('eyeFrame').value;
+            const errLevel = document.getElementById('errorCorrection') ? document.getElementById('errorCorrection').value : "H"; 
+
+            // 2. Xử lý Nền (Background)
+            const isTransparent = document.getElementById('bgTransparent').checked;
+            const bgType = document.getElementById('bgFillType').value;
             
+            // Khởi tạo mặc định: ÉP XÓA gradient cũ
+            let bgOptions = { color: "transparent", gradient: null }; 
+            
+            if (!isTransparent) {
+                if (bgType === 'solid') {
+                    bgOptions.color = document.getElementById('bgColor').value;
+                } else {
+                    bgOptions.gradient = {
+                        type: bgType,
+                        rotation: parseInt(document.getElementById('bgAngle').value) * (Math.PI / 180),
+                        colorStops: [
+                            { offset: 0, color: document.getElementById('bgColor1').value },
+                            { offset: 1, color: document.getElementById('bgColor2').value }
+                        ]
+                    };
+                }
+            }
+
+            // 3. Xử lý Họa tiết (Dots)
+            const dotTypeFill = document.getElementById('dotFillType').value;
+            
+            // Khởi tạo mặc định: ÉP XÓA gradient cũ
+            let dotsOptions = { type: dotType, gradient: null }; 
+            let primaryColorForEyes = "#000000"; 
+            
+            if (dotTypeFill === 'solid') {
+                primaryColorForEyes = document.getElementById('dotColor').value;
+                dotsOptions.color = primaryColorForEyes;
+            } else {
+                primaryColorForEyes = document.getElementById('dotColor1').value; // Mắt QR ăn theo màu 1
+                dotsOptions.gradient = {
+                    type: dotTypeFill,
+                    rotation: parseInt(document.getElementById('dotAngle').value) * (Math.PI / 180),
+                    colorStops: [
+                        { offset: 0, color: document.getElementById('dotColor1').value },
+                        { offset: 1, color: document.getElementById('dotColor2').value }
+                    ]
+                };
+            }
+
+            // 4. Xử lý Logo
             const logoSize = parseFloat(document.getElementById('logoSize').value);
             const hideLogoBg = document.getElementById('logoBgHide').checked;
 
-            const errLevel = document.getElementById('errorCorrection').value;
-
+            // 5. Cập nhật QR
             qrCode.update({
                 data: qrData,
                 qrOptions: { errorCorrectionLevel: errLevel },
-                dotsOptions: { color: dotColor, type: dotType },
-                backgroundOptions: { color: bgColor },
-                cornersSquareOptions: { type: eyeFrame, color: dotColor },
-                cornersDotOptions: { type: "square", color: dotColor }, // Mắt trong luôn vuông cho dễ nhận diện
+                dotsOptions: dotsOptions,
+                backgroundOptions: bgOptions,
+                cornersSquareOptions: { type: eyeFrame, color: primaryColorForEyes },
+                cornersDotOptions: { type: "square", color: primaryColorForEyes },
                 image: currentLogoDataUrl,
-                imageOptions: { 
-                    hideBackgroundDots: hideLogoBg, 
-                    imageSize: logoSize, 
-                    margin: 5 
-                }
+                imageOptions: { hideBackgroundDots: hideLogoBg, imageSize: logoSize, margin: 5 }
             });
         }
 
