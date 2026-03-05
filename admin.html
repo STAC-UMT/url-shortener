@@ -33,6 +33,10 @@
         /* Chỉnh style khu vực hiển thị QR */
         #qrDisplayArea { margin-top: 15px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         #qrCanvas { padding: 10px; background: white; border: 1px solid #d0d7de; border-radius: 8px; display: inline-block; }
+        #qrCanvas canvas, #qrCanvas img {
+            max-width: 250px !important; 
+            height: auto !important;
+        }
         .btn-download { background: #24292f; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
         .btn-download:hover { background: #424a53; }
     </style>
@@ -154,8 +158,8 @@
                     qrContainer.innerHTML = ""; // Clear cũ
                     new QRCode(qrContainer, {
                         text: targetUrlForQR,
-                        width: 220,
-                        height: 220,
+                        width: 4096,
+                        height: 4096,
                         colorDark : "#000000",
                         colorLight : "#ffffff",
                         correctLevel : QRCode.CorrectLevel.H
